@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Election Simulation</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+
+    <!-- React and Babel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/17.0.2/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/17.0.2/umd/react-dom.production.min.js"></script>
+    <!-- jsPDF CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Lato', sans-serif;
+            background-color: #f9fafb;
+        }
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+        }
+        .slider {
+            appearance: none;
+            width: 100%;
+            height: 10px;
+            border-radius: 5px;
+            background: linear-gradient(to right, #6366f1, #d3d3d3);
+            outline: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .slider:hover {
+            background: linear-gradient(to right, #4f46e5, #b3b3b3);
+        }
+        .slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #6366f1;
+            cursor: pointer;
+            box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+            transition: background 0.3s, transform 0.3s;
+        }
+        .slider::-webkit-slider-thumb:hover {
+            background: #4f46e5;
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- React Root Element -->
+    <div id="root"></div>
+
+    <script>
+        const { useState, useEffect } = React;
+
+        const Slider = ({ value, onValueChange, max = 100, step = 1 }) => (
+            React.createElement('input', {
+                type: 'range',
+                value: value[0],
+                onChange: (e) => onValueChange([parseInt(e.target.value)]),
+                max: max,
+                step: step,
+                className: 'slider w-full focus:outline-none focus:ring-2 focus:ring-indigo-500'
+            })
+        );
+
+        const Input = ({ type, value, onChange, placeholder, readOnly, className }) => (
+            React.createElement('input', {
+                type: type,
+                value: value,
+                onChange: onChange,
+                placeholder: placeholder,
+                readOnly: readOnly,
+                className: `w-full px-3 py-2 border rounded-md ${className || ''}`
+            })
+        );
+
+        const ElectionSimulation = () => {
+            const races = ['malay', 'chinese', 'indian', 'others'];
+            const datasets = {
+                 "P.092 - SABAK BERNAM": { totalVoters: 51842, malay: 42671, chinese: 6942, indian: 2229, others: 0 },
+					"N.01 - SUNGAI AIR TAWAR": { totalVoters: 20026, malay: 17007, chinese: 2517, indian: 502, others: 0 },
+					"N.02 - SABAK": { totalVoters: 31816, malay: 25664, chinese: 4425, indian: 1727, others: 0 },
+					"P.093 - SUNGAI BESAR": { totalVoters: 64722, malay: 44418, chinese: 19133, indian: 1171, others: 0 },
+					"N.03 - SUNGAI PANJANG": { totalVoters: 40786, malay: 33573, chinese: 6685, indian: 528, others: 0 },
+					"N.04 - SEKINCHAN": { totalVoters: 23936, malay: 10845, chinese: 12448, indian: 643, others: 0 },
+					"P.094 - HULU SELANGOR": { totalVoters: 156664, malay: 105272, chinese: 29045, indian: 22336, others: 11 },
+					"N.05 - HULU BERNAM": { totalVoters: 30367, malay: 21865, chinese: 4625, indian: 3874, others: 3 },
+					"N.06 - KUALA KUBU BAHARU": { totalVoters: 40015, malay: 20416, chinese: 12613, indian: 6986, others: 0 },
+					"N.07 - BATANG KALI": { totalVoters: 86282, malay: 62991, chinese: 11807, indian: 11476, others: 8 },
+					"P.095 - TANJONG KARANG": { totalVoters: 62511, malay: 46771, chinese: 11014, indian: 4726, others: 0 },
+					"N.08 - SUNGAI BURONG": { totalVoters: 31715, malay: 26783, chinese: 4244, indian: 688, others: 0 },
+					"N.09 - PERMATANG": { totalVoters: 30796, malay: 19988, chinese: 6770, indian: 4038, others: 0 },
+					"P.096 - KUALA SELANGOR": { totalVoters: 105325, malay: 73269, chinese: 13085, indian: 18970, others: 1 },
+					"N.10 - BUKIT MELAWATI": { totalVoters: 37956, malay: 23864, chinese: 6143, indian: 7948, others: 1 },
+					"N.11 - IJOK": { totalVoters: 30662, malay: 19418, chinese: 4221, indian: 7023, others: 0 },
+					"N.12 - JERAM": { totalVoters: 36707, malay: 29987, chinese: 2721, indian: 3999, others: 0 },
+					"P.097 - SELAYANG": { totalVoters: 185425, malay: 104924, chinese: 50175, indian: 30241, others: 85 },
+					"N.13 - KUANG": { totalVoters: 45606, malay: 37149, chinese: 4899, indian: 3556, others: 2 },
+					"N.14 - RAWANG": { totalVoters: 76841, malay: 27542, chinese: 30689, indian: 18552, others: 58 },
+					"N.15 - TAMAN TEMPLER": { totalVoters: 62978, malay: 39936, chinese: 14587, indian: 8428, others: 27 },
+					"P.098 - GOMBAK": { totalVoters: 209237, malay: 163863, chinese: 25275, indian: 20016, others: 83 },
+					"N.16 - SUNGAI TUA": { totalVoters: 49055, malay: 31973, chinese: 6636, indian: 10429, others: 17 },
+					"N.17 - GOMBAK SETIA": { totalVoters: 88480, malay: 69450, chinese: 11482, indian: 7530, others: 18 },
+					"N.18 - HULU KELANG": { totalVoters: 71702, malay: 62440, chinese: 7157, indian: 2057, others: 48 },
+					"P.099 - AMPANG": { totalVoters: 148199, malay: 88764, chinese: 41393, indian: 17989, others: 53 },
+					"N.19 - BUKIT ANTARABANGSA": { totalVoters: 75760, malay: 46764, chinese: 18654, indian: 10299, others: 43 },
+					"N.20 - LEMBAH JAYA": { totalVoters: 72439, malay: 41977, chinese: 22739, indian: 7726, others: 10 },
+					"P.100 - PANDAN": { totalVoters: 133888, malay: 56880, chinese: 60493, indian: 16291, others: 224 },
+					"N.21 - PANDAN INDAH": { totalVoters: 68996, malay: 30222, chinese: 30666, indian: 7953, others: 155 },
+					"N.22 - TERATAI": { totalVoters: 64892, malay: 26658, chinese: 29827, indian: 8338, others: 69 },
+					"P.101 - HULU LANGAT": { totalVoters: 159322, malay: 101399, chinese: 35442, indian: 22392, others: 89 },
+					"N.23 - DUSUN TUA": { totalVoters: 57376, malay: 46430, chinese: 6188, indian: 4743, others: 15 },
+					"N.24 - SEMENYIH": { totalVoters: 60671, malay: 44426, chinese: 10079, indian: 6119, others: 47 },
+					"P.102 - BANGI": { totalVoters: 291938, malay: 155692, chinese: 99422, indian: 36478, others: 346 },
+					"N.25 - KAJANG": { totalVoters: 76880, malay: 34422, chinese: 30418, indian: 11770, others: 270 },
+					"N.26 - SUNGAI RAMAL": { totalVoters: 100786, malay: 61570, chinese: 26527, indian: 12497, others: 192 },
+					"N.27 - BALAKONG": { totalVoters: 114272, malay: 59700, chinese: 42477, indian: 12211, others: 188 },
+					"P.103 - PUCHONG": { totalVoters: 231842, malay: 96816, chinese: 104225, indian: 30636, others: 165 },
+					"N.28 - SERI KEMBANGAN": { totalVoters: 111865, malay: 42058, chinese: 57705, indian: 11925, others: 177 },
+					"N.29 - SERI SERDANG": { totalVoters: 119977, malay: 54758, chinese: 46520, indian: 18338, others: 361 },
+					"P.104 - SUBANG": { totalVoters: 245341, malay: 114948, chinese: 96926, indian: 32592, others: 875 },
+					"N.30 - KINRARA": { totalVoters: 114381, malay: 49002, chinese: 49857, indian: 14979, others: 543 },
+					"N.31 - SUBANG JAYA": { totalVoters: 130960, malay: 65946, chinese: 47069, indian: 15012, others: 933 },
+					"P.105 - PETALING JAYA": { totalVoters: 177896, malay: 70140, chinese: 82719, indian: 24578, others: 459 },
+					"N.32 - SERI SETIA": { totalVoters: 68779, malay: 40620, chinese: 18119, indian: 9722, others: 318 },
+					"N.33 - TAMAN MEDAN": { totalVoters: 68663, malay: 45524, chinese: 9372, indian: 13459, others: 308 },
+					"N.34 - BUKIT GASING": { totalVoters: 40531, malay: 14996, chinese: 28133, indian: 1348, others: 54 },
+					"P.106 - DAMANSARA": { totalVoters: 282202, malay: 115051, chinese: 138876, indian: 27352, others: 923 },
+					"N.35 - KAMPUNG TUNKU": { totalVoters: 73826, malay: 34645, chinese: 34101, indian: 4508, others: 572 },
+					"N.36 - BANDAR UTAMA": { totalVoters: 103352, malay: 38059, chinese: 56880, indian: 6883, others: 530 },
+					"N.37 - BUKIT LANJAN": { totalVoters: 105024, malay: 42347, chinese: 47943, indian: 11961, others: 773 },
+					"P.107 - SUNGAI BULOH": { totalVoters: 158090, malay: 100139, chinese: 37709, indian: 20184, others: 58 },
+					"N.38 - PAYA JARAS": { totalVoters: 66119, malay: 51386, chinese: 6020, indian: 8668, others: 45 },
+					"N.39 - KOTA DAMANSARA": { totalVoters: 91971, malay: 48753, chinese: 31689, indian: 11497, others: 32 },
+					"P.108 - SHAH ALAM": { totalVoters: 166614, malay: 120018, chinese: 27835, indian: 18747, others: 14 },
+					"N.40 - KOTA ANGGERIK": { totalVoters: 80183, malay: 62379, chinese: 9398, indian: 8418, others: 8 },
+					"N.41 - BATU TIGA": { totalVoters: 86431, malay: 57639, chinese: 18437, indian: 10311, others: 6 },
+					"P.109 - KAPAR": { totalVoters: 222586, malay: 144352, chinese: 51479, indian: 25671, others: 16 },
+					"N.42 - MERU": { totalVoters: 65801, malay: 38777, chinese: 11395, indian: 15623, others: 6 },
+					"N.43 - SEMENTA": { totalVoters: 68969, malay: 52874, chinese: 9517, indian: 6571, others: 7 },
+					"N.44 - SELAT KLANG": { totalVoters: 57613, malay: 44983, chinese: 9150, indian: 3477, others: 3 },
+					"P.110 - KLANG": { totalVoters: 210510, malay: 62096, chinese: 113322, indian: 35033, others: 59 },
+					"N.45 - BANDAR BARU KLANG": { totalVoters: 82826, malay: 14364, chinese: 56661, indian: 11781, others: 20 },
+					"N.46 - PELABUHAN KLANG": { totalVoters: 51907, malay: 34102, chinese: 9906, indian: 7893, others: 6 },
+					"N.47 - PANDAMARAN": { totalVoters: 75777, malay: 13630, chinese: 46755, indian: 15359, others: 33 },
+					"P.111 - KOTA RAJA": { totalVoters: 250821, malay: 108370, chinese: 78876, indian: 63476, others: 99 },
+					"N.48 - SENTOSA": { totalVoters: 90270, malay: 16573, chinese: 38411, indian: 35266, others: 20 },
+					"N.49 - SUNGAI KANDIS": { totalVoters: 78605, malay: 56741, chinese: 11093, indian: 10759, others: 12 },
+					"N.50 - KOTA KEMUNING": { totalVoters: 81946, malay: 35056, chinese: 29372, indian: 17451, others: 67 },
+					"P.112 - KUALA LANGAT": { totalVoters: 151707, malay: 89493, chinese: 37221, indian: 24989, others: 4 },
+					"N.51 - SIJANGKANG": { totalVoters: 62907, malay: 48023, chinese: 6009, indian: 8873, others: 2 },
+					"N.52 - BANTING": { totalVoters: 44972, malay: 9004, chinese: 26191, indian: 9775, others: 2 },
+					"N.53 - MORIB": { totalVoters: 43828, malay: 32466, chinese: 5021, indian: 6341, others: 0 },
+					"P.113 - SEPANG": { totalVoters: 173578, malay: 117324, chinese: 35205, indian: 21038, others: 11 },
+					"N.54 - TANJONG SEPAT": { totalVoters: 32312, malay: 19796, chinese: 8762, indian: 3754, others: 0 },
+					"N.55 - DENGKIL": { totalVoters: 93931, malay: 69207, chinese: 15235, indian: 9478, others: 11 },
+					"N.56 - SUNGAI PELEK": { totalVoters: 47335, malay: 28321, chinese: 11208, indian: 7806, others: 0 }
+            };
+            const [pnSupport, setPnSupport] = useState({ malay: 68, chinese: 1, indian: 20, others: 45 });
+            const [phbnSupport, setPhbnSupport] = useState({ malay: 32, chinese: 99, indian: 80, others: 55 });
+            const [voterDistribution, setVoterDistribution] = useState({ malay: 0, chinese: 0, indian: 0, others: 0 });
+            const [turnout, setTurnout] = useState({ malay: 80, chinese: 80, indian: 80, others: 80 });
+            const [totalVoters, setTotalVoters] = useState(0);
+            const [constitutionName, setConstitutionName] = useState('');
+            const [results, setResults] = useState({ pn: 0, phbn: 0, totalVotes: 0 });
+            const [copyButtonText, setCopyButtonText] = useState('Copy Text');
+
+            useEffect(() => {
+                if (constitutionName && datasets[constitutionName]) {
+                    const data = datasets[constitutionName];
+                    setVoterDistribution({
+                        malay: data.malay,
+                        chinese: data.chinese,
+                        indian: data.indian,
+                        others: data.others
+                    });
+                    setTotalVoters(data.totalVoters);
+                }
+            }, [constitutionName]);
+
+            useEffect(() => {
+                calculateResults();
+            }, [pnSupport, phbnSupport, voterDistribution, turnout]);
+
+            const calculateResults = () => {
+                let pnVotes = 0;
+                let phbnVotes = 0;
+                let totalVotes = 0;
+
+                races.forEach(race => {
+                    const raceVoters = voterDistribution[race] * (turnout[race] / 100);
+                    pnVotes += raceVoters * (pnSupport[race] / 100);
+                    phbnVotes += raceVoters * (phbnSupport[race] / 100);
+                    totalVotes += raceVoters;
+                });
+
+                setResults({
+                    pn: Math.round(pnVotes),
+                    phbn: Math.round(phbnVotes),
+                    totalVotes: Math.round(totalVotes)
+                });
+            };
+
+            const handleSupportChange = (coalition, race, value) => {
+                if (coalition === 'pn') {
+                    setPnSupport({ ...pnSupport, [race]: value });
+                    setPhbnSupport({ ...phbnSupport, [race]: 100 - value });
+                } else {
+                    setPhbnSupport({ ...phbnSupport, [race]: value });
+                    setPnSupport({ ...pnSupport, [race]: 100 - value });
+                }
+            };
+
+            const handleTurnoutChange = (race, value) => {
+                setTurnout({ ...turnout, [race]: value });
+            };
+
+            const formatNumber = (num) => num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+            const getPercentage = (votes, totalVotes) => ((votes / totalVotes) * 100).toFixed(2);
+            const getTurnoutPercentage = (totalVotes, totalVoters) => ((totalVotes / totalVoters) * 100).toFixed(2);
+
+            const getWinnerInfo = () => {
+                if (results.totalVotes === 0) return '';
+                const difference = Math.abs(results.pn - results.phbn);
+                const winner = results.pn > results.phbn ? 'PN' : 'PHBN';
+                const majorityPercentage = getPercentage(difference, results.totalVotes);
+                return `${winner} wins with a majority of ${formatNumber(difference)} votes (${majorityPercentage}%)`;
+            };
+
+            const exportToPDF = () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ unit: 'pt' });
+
+               // Header
+				doc.setFontSize(18);
+				doc.setFont('helvetica', 'bold');
+				doc.text('Election Simulation Results', 40, 40);
+				doc.setFontSize(14);
+				doc.setFont('helvetica', 'normal');
+				doc.text(`Constitution Name: ${constitutionName}`, 40, 70);
+				doc.setFontSize(13);
+				doc.setFont('helvetica', 'normal');
+				doc.text(`Total Voters: ${formatNumber(totalVoters)}`, 40, 90);
+
+				// Add empty line break
+				doc.text('', 40, 120);
+
+                // Section: Voter Distribution
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Voter Distribution', 40, 120);
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'normal');
+                races.forEach((race, index) => {
+                    const percentage = getPercentage(voterDistribution[race], totalVoters);
+                    doc.text(`${race.charAt(0).toUpperCase() + race.slice(1)}: ${formatNumber(voterDistribution[race])} (${percentage}%)`, 40, 140 + index * 20);
+                });
+
+                // Add line break after Voter Distribution
+                let yPosition = 120 + races.length * 25 + 20;
+
+                // Section: Voter Turnout
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Voter Turnout', 40, yPosition);
+                yPosition += 20;
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'normal');
+                races.forEach((race, index) => {
+                    doc.text(`${race.charAt(0).toUpperCase() + race.slice(1)}: ${turnout[race]}%`, 40, yPosition);
+                    yPosition += 20;
+                });
+
+                // Add line break after Voter Turnout
+                yPosition += 20;
+
+                // Section: Coalition Support
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Coalition Support', 40, yPosition);
+                yPosition += 20;
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'normal');
+                races.forEach((race, index) => {
+                    doc.text(`${race.charAt(0).toUpperCase() + race.slice(1)} - PN: ${pnSupport[race]}%, PHBN: ${phbnSupport[race]}%`, 40, yPosition);
+                    yPosition += 20;
+                });
+
+
+                // Add line break after Coalition Support
+                yPosition += 20;
+
+                // Section: Election Results
+                const totalTurnout = getTurnoutPercentage(results.totalVotes, totalVoters);
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Expected Election Results', 40, yPosition);
+                yPosition += 20;
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`PN: ${formatNumber(results.pn)} votes (${getPercentage(results.pn, results.totalVotes)}%)`, 40, yPosition);
+                yPosition += 20;
+                doc.text(`PHBN: ${formatNumber(results.phbn)} votes (${getPercentage(results.phbn, results.totalVotes)}%)`, 40, yPosition);
+                yPosition += 20;
+                doc.text(`Total Votes: ${formatNumber(results.totalVotes)} (${totalTurnout}% turnout)`, 40, yPosition);
+                yPosition += 40; // Increase spacing to avoid overlap
+                doc.setFont('helvetica', 'bold');
+                doc.text(`Winner: ${getWinnerInfo()}`, 40, yPosition);
+
+                // Footer
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'italic');
+                doc.text('Generated by Election Simulation Tool', 40, 600);
+
+                const filename = constitutionName ? constitutionName.replace(/\s+/g, '_') : 'election-results';
+                doc.save(`${filename}.pdf`);
+            };
+
+            const copyReportToClipboard = () => {
+    const totalTurnout = getTurnoutPercentage(results.totalVotes, totalVoters);
+    const reportText = `
+*Election Simulation Results*
+Constitution Name: ${constitutionName}
+
+*Total Voters: ${formatNumber(totalVoters)}*
+
+*Voter Distribution:*
+${races.map(race => `${race.charAt(0).toUpperCase() + race.slice(1)}: ${formatNumber(voterDistribution[race])} (${getPercentage(voterDistribution[race], totalVoters)}%)`).join('\n')}
+
+*Voter Turnout:*
+${races.map(race => `${race.charAt(0).toUpperCase() + race.slice(1)}: ${turnout[race]}%`).join('\n')}
+
+*Coalition Support:*
+${races.map(race => `${race.charAt(0).toUpperCase() + race.slice(1)} - PN: ${pnSupport[race]}%, PHBN: ${phbnSupport[race]}%`).join('\n')}
+
+*Expected Election Results:*
+PN: ${formatNumber(results.pn)} votes (${getPercentage(results.pn, results.totalVotes)}%)
+PHBN: ${formatNumber(results.phbn)} votes (${getPercentage(results.phbn, results.totalVotes)}%)
+Total Votes: ${formatNumber(results.totalVotes)} (${totalTurnout}% turnout)
+
+*Winner: ${getWinnerInfo()}*
+
+_Generated by Election Simulation Tool_
+    `;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        // Use Clipboard API if available
+        navigator.clipboard.writeText(reportText.trim()).then(() => {
+            setCopyButtonText('Copied!');
+            setTimeout(() => setCopyButtonText('Copy Text'), 3000);
+        }).catch((err) => {
+            console.error('Failed to copy text: ', err);
+            fallbackCopyTextToClipboard(reportText.trim());
+        });
+    } else {
+        // Fallback if Clipboard API is not supported
+        fallbackCopyTextToClipboard(reportText.trim());
+    }
+};
+
+const fallbackCopyTextToClipboard = (text) => {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    // Avoid scrolling to bottom
+    textArea.style.position = 'fixed';
+    textArea.style.top = '-1000px';
+    textArea.style.left = '-1000px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            setCopyButtonText('Copied!');
+            setTimeout(() => setCopyButtonText('Copy Text'), 3000);
+        } else {
+            console.error('Fallback copy was not successful');
+        }
+    } catch (err) {
+        console.error('Fallback: Unable to copy', err);
+    }
+
+    document.body.removeChild(textArea);
+};
+
+
+            const shareOnWhatsApp = () => {
+                const totalTurnout = getTurnoutPercentage(results.totalVotes, totalVoters);
+                const reportText = `
+*Election Simulation Results*
+Constitution Name: ${constitutionName}
+
+*Total Voters: ${formatNumber(totalVoters)}*
+
+*Voter Distribution:*
+${races.map(race => `${race.charAt(0).toUpperCase() + race.slice(1)}: ${formatNumber(voterDistribution[race])} (${getPercentage(voterDistribution[race], totalVoters)}%)`).join('\n')}
+
+*Voter Turnout:*
+${races.map(race => `${race.charAt(0).toUpperCase() + race.slice(1)}: ${turnout[race]}%`).join('\n')}
+
+*Coalition Support:*
+${races.map(race => `${race.charAt(0).toUpperCase() + race.slice(1)} - PN: ${pnSupport[race]}%, PHBN: ${phbnSupport[race]}%`).join('\n')}
+
+*Expected Election Results:*
+PN: ${formatNumber(results.pn)} votes (${getPercentage(results.pn, results.totalVotes)}%)
+PHBN: ${formatNumber(results.phbn)} votes (${getPercentage(results.phbn, results.totalVotes)}%)
+Total Votes: ${formatNumber(results.totalVotes)} (${totalTurnout}% turnout)
+
+*Winner: ${getWinnerInfo()}*
+
+_Generated by Election Simulation Tool_
+                `;
+                const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(reportText.trim())}`;
+                window.open(whatsappUrl, '_blank');
+            };
+
+            return (
+                React.createElement('div', { className: 'p-4 max-w-full mx-auto' },
+                    React.createElement('h2', { className: 'text-2xl font-bold mb-1 text-gray-800 text-center' }, 'Simple Straight Fight Election Simulation'),
+                    React.createElement('h2', { className: 'text-1xl font-semibold mb-1 text-gray-800 text-center' }, 'SELANGOR'),
+                    React.createElement('h2', { className: 'text-1xl font-semibold mb-1 text-gray-700 text-center' }, '(Estimate Support by Race)'),
+                    React.createElement('p', { className: 'text-sm text-gray-600 mb-4 text-center' }, 'by: Abd Rashid Abdullah'),
+                    React.createElement('div', { className: 'grid grid-cols-1 gap-4 mb-8' },
+                        React.createElement('div', { className: 'card' },
+                            React.createElement('div', { className: 'mb-4' },
+                                React.createElement('label', { className: 'block mb-2 font-semibold text-gray-700' }, 'Parliament/DUN'),
+                                React.createElement('select', {
+                                    value: constitutionName,
+                                    onChange: (e) => setConstitutionName(e.target.value),
+                                    className: 'w-full px-3 py-2 border rounded-md'
+                                },
+                                    React.createElement('option', { value: '' }, 'Select Constitution'),
+                                    Object.keys(datasets).map((key) => (
+                                        React.createElement('option', { key: key, value: key }, key)
+                                    ))
+                                )
+                            ),
+                            React.createElement('h3', { className: 'text-lg font-semibold mb-2 text-gray-800' }, 'Voter Distribution'),
+                            races.map(race => (
+                                React.createElement('div', { key: race, className: 'mb-4' },
+                                    React.createElement('label', { className: 'block mb-2 capitalize text-gray-700' }, race),
+                                    React.createElement(Input, {
+                                        type: 'text',
+                                        value: `${formatNumber(voterDistribution[race])} (${getPercentage(voterDistribution[race], totalVoters)}%)`,
+                                        readOnly: true,
+                                        className: 'bg-gray-100'
+                                    })
+                                )
+                            )),
+                            React.createElement('div', { className: 'mb-4' },
+                                React.createElement('label', { className: 'block mb-2 font-bold text-gray-700' }, 'Total Voters'),
+                                React.createElement(Input, {
+                                    type: 'text',
+                                    value: formatNumber(totalVoters),
+                                    readOnly: true,
+                                    className: 'bg-gray-100'
+                                })
+                            )
+                        )
+                    ),
+                    React.createElement('div', { className: 'mb-8 card' },
+                        React.createElement('h3', { className: 'text-lg font-semibold mb-2 text-gray-800' }, 'Voter Turnout by Race'),
+                        React.createElement('div', { className: 'grid grid-cols-1 gap-4' },
+                            races.map(race => (
+                                React.createElement('div', { key: race, className: 'mb-4' },
+                                    React.createElement('label', { className: 'block mb-2 capitalize text-gray-700' }, `${race} Turnout: ${turnout[race]}%`),
+                                    React.createElement(Slider, {
+                                        value: [turnout[race]],
+                                        onValueChange: ([value]) => handleTurnoutChange(race, value),
+                                        max: 100,
+                                        step: 1
+                                    })
+                                )
+                            ))
+                        )
+                    ),
+                    React.createElement('div', { className: 'mb-8 card' },
+                        React.createElement('h3', { className: 'text-lg font-semibold mb-2 text-gray-800' }, 'Coalition Support by Race'),
+                        races.map(race => (
+                            React.createElement('div', { key: race, className: 'mb-4' },
+                                React.createElement('label', { className: 'block mb-2 capitalize text-gray-700 text-left' }, race),
+                                React.createElement('div', { className: 'flex items-center space-x-4' },
+                                    React.createElement('span', { className: 'w-12 text-left' }, 'PN:'),
+                                    React.createElement(Slider, {
+                                        value: [pnSupport[race]],
+                                        onValueChange: ([value]) => handleSupportChange('pn', race, value),
+                                        max: 100,
+                                        step: 1,
+                                        className: 'mx-2 flex-1'
+                                    }),
+                                    React.createElement('span', { className: 'w-12 text-left' }, `${pnSupport[race]}%`)
+                                ),
+                                React.createElement('div', { className: 'flex items-center space-x-4 mt-2' },
+                                    React.createElement('span', { className: 'w-12 text-left' }, 'PHBN:'),
+                                    React.createElement(Slider, {
+                                        value: [phbnSupport[race]],
+                                        onValueChange: ([value]) => handleSupportChange('phbn', race, value),
+                                        max: 100,
+                                        step: 1,
+                                        className: 'mx-2 flex-1'
+                                    }),
+                                    React.createElement('span', { className: 'w-12 text-left' }, `${phbnSupport[race]}%`)
+                                )
+                            )
+                        ))
+                    ),
+                    React.createElement('div', { className: 'mb-8 card' },
+                        React.createElement('h3', { className: 'text-lg font-semibold mb-2 text-gray-800' }, 'Expected Election Results'),
+                        constitutionName && React.createElement('p', { className: 'font-medium mb-2 text-gray-700' }, `Parliament/DUN: ${constitutionName}`),
+                        React.createElement('div', { className: 'flex flex-col md:flex-row justify-between items-center' },
+                            React.createElement('div', { className: 'mb-4 md:mb-0' },
+                                React.createElement('p', null, `PN: ${formatNumber(results.pn)} votes (${getPercentage(results.pn, results.totalVotes)}%)`),
+                                React.createElement('p', null, `PHBN: ${formatNumber(results.phbn)} votes (${getPercentage(results.phbn, results.totalVotes)}%)`),
+                                React.createElement('p', null, `Total Votes: ${formatNumber(results.totalVotes)} (${getTurnoutPercentage(results.totalVotes, totalVoters)}% turnout)`),
+                                React.createElement('p', { className: 'font-bold mt-4 text-gray-900' }, getWinnerInfo())
+                            )
+                        ),
+                        React.createElement('div', { className: 'mt-6 flex space-x-4' },
+                            React.createElement('button', {
+                                onClick: exportToPDF,
+                                className: 'bg-blue-500 text-white font-bold py-2 px-4 rounded hover:bg-blue-400'
+                            }, 'Export PDF'),
+                            React.createElement('button', {
+                                onClick: copyReportToClipboard,
+                                className: 'bg-green-500 text-white font-bold py-2 px-4 rounded hover:bg-green-400'
+                            }, copyButtonText),
+                            React.createElement('button', {
+                                onClick: shareOnWhatsApp,
+                                className: 'bg-green-600 text-white font-bold py-2 px-4 rounded hover:bg-green-500'
+                            }, 'Share on WhatsApp')
+                        )
+                    )
+                )
+            );
+        };
+
+        // Render the ElectionSimulation component
+        document.addEventListener('DOMContentLoaded', function() {
+            const rootElement = document.getElementById('root');
+            if (rootElement) {
+                ReactDOM.render(React.createElement(ElectionSimulation), rootElement);
+            } else {
+                console.error("Root element not found.");
+            }
+        });
+    </script>
+</body>
+</html>
